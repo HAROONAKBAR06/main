@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Haroon 💫 (Locked)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;width:100%;}
+  body{
+    height:100vh;width:100vw;
+    font-family:'Poppins',sans-serif;
+    background:url('bg.png') center/cover no-repeat;
+    display:flex;flex-direction:column;
+    justify-content:center;align-items:center;
+    color:white;text-align:center;
+    overflow:hidden;position:relative;
+  }
+
+  /* page dim overlay */
+  .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.35);z-index:1;transition:opacity .5s ease;}
+
+  h1,p,button{z-index:2;position:relative;}
+  h1{font-size:2rem;text-shadow:0 2px 8px rgba(0,0,0,0.6);}
+  p{font-size:1rem;margin:10px 0 25px;}
+
+  button{
+    background:rgba(255,255,255,0.25);
+    border:1px solid rgba(255,255,255,0.3);
+    color:white;padding:12px 32px;font-size:1.1rem;
+    border-radius:40px;cursor:pointer;transition:transform .2s ease;
+  }
+  button:active{transform:scale(.97);}
+
+  video{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    object-fit:cover;display:none;z-index:10;background:black;
+  }
+
+  /* LOCK UI */
+  #lockScreen{
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+    background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.65));
+    padding:20px;
+  }
+  .lockCard{
+    width:92%;
+    max-width:420px;
+    background:rgba(255,255,255,0.05);
+    border-radius:14px;
+    padding:18px;
+    text-align:center;
+    color:#fff;
+    box-shadow:0 10px 30px rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+  }
+  .lockCard h2{margin-bottom:8px;font-size:1.25rem}
+  .lockCard p{font-size:.95rem;color:#ddd;margin-bottom:14px}
+  .pwRow{display:flex;gap:8px;align-items:center;justify-content:center}
+  input[type="password"]{
+    flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);
+    background:rgba(255,255,255,0.03);color:#fff;font-size:1rem;outline:none;
+  }
+  .pwBtn{
+    padding:10px 14px;border-radius:10px;border:none;background:#fff;color:#111;font-weight:600;cursor:pointer;
+  }
+  .errorMsg{color:#ffb3c6;margin-top:10px;height:18px}
+  /* shake animation for wrong password */
+  @keyframes shake {
+    0%{ transform: translateX(0) }
+    20%{ transform: translateX(-8px) }
+    40%{ transform: translateX(8px) }
+    60%{ transform: translateX(-6px) }
+    80%{ transform: translateX(6px) }
+    100%{ transform: translateX(0) }
+  }
+  .shake { animation: shake .5s ease; }
+  /* small helper for show/hide */
+  .hidden{ display:none !important; }
+  .mutedNotice { position:fixed; bottom:12px; left:12px; z-index:12; background:rgba(0,0,0,0.45); padding:8px 12px; border-radius:10px; font-size:13px; color:#fff; }
+</style>
+</head>
+<body>
+  <!-- Lock screen: visible until correct password -->
+  <div id="lockScreen" aria-hidden="false">
+    <div class="lockCard" id="lockCard">
+      <h2>Enter Password to Open</h2>
+      <p>This page is private — enter the password to view the surprise.</p>
+      <div class="pwRow">
+        <input id="pwInput" type="password" placeholder="Password" aria-label="password" />
+        <button id="pwBtn" class="pwBtn">Unlock</button>
+      </div>
+      <div class="errorMsg" id="err"></div>
+      <p style="font-size:12px;margin-top:10px;color:#cfcfcf">Hint: use the numeric password provided to you.</p>
+    </div>
+  </div>
+
+  <!-- main page UI -->
+  <div class="overlay" id="overlay"></div>
+  <h1>Haroon 💫</h1>
+  <p>This is for someone special...</p>
+  <button id="startBtn" class="hidden">🎬 Start Surprise</button>
+
+  <video id="v1" src="1.mp4" playsinline preload="metadata" controlslist="nodownload"></video>
+  <video id="v2" src="2.mp4" playsinline preload="metadata" controlslist="nodownload"></video>
+
+  <div class="mutedNotice hidden" id="mutedNotice">If no sound, tap the screen while video is playing to allow audio.</div>
+
+<script>
+(function(){
+  const LOCK_PW = '12345678'; // <-- password
+  const lockScreen = document.getElementById('lockScreen');
+  const pwInput = document.getElementById('pwInput');
+  const pwBtn = document.getElementById('pwBtn');
+  const err = document.getElementById('err');
+  const lockCard = document.getElementById('lockCard');
+
+  const overlay = document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const v1 = document.getElementById('v1');
+  const v2 = document.getElementById('v2');
+  const mutedNotice = document.getElementById('mutedNotice');
+
+  // If user already unlocked this session, skip lock
+  if (sessionStorage.getItem('haroon_unlocked') === 'true') {
+    unlockUI();
+  } else {
+    pwInput.focus();
+  }
+
+  function showError(message) {
+    err.textContent = message || 'Wrong password';
+    lockCard.classList.remove('shake');
+    // trigger shake
+    void lockCard.offsetWidth;
+    lockCard.classList.add('shake');
+  }
+
+  function unlockUI() {
+    lockScreen.style.display = 'none';
+    lockScreen.setAttribute('aria-hidden','true');
+    // show main start button
+    startBtn.classList.remove('hidden');
+    // optionally show muted notice (hidden by default)
+    mutedNotice.classList.remove('hidden');
+    sessionStorage.setItem('haroon_unlocked', 'true');
+  }
+
+  pwBtn.addEventListener('click', () => {
+    const val = pwInput.value.trim();
+    if (val === LOCK_PW) {
+      unlockUI();
+    } else {
+      showError('Incorrect password — try again');
+      pwInput.value = '';
+      pwInput.focus();
+    }
+  });
+
+  // allow Enter key
+  pwInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      pwBtn.click();
+    }
+  });
+
+  // --- Video sequence logic ---
+  async function safePlay(video) {
+    // hide overlay to reduce GPU load while playing
+    overlay.style.opacity = 0;
+    video.style.display = 'block';
+    try {
+      // ensure unmuted if browser allows
+      video.muted = false;
+      video.volume = 1;
+      await video.play();
+    } catch (errPlay) {
+      // if still blocked, tell user to tap the screen once
+      console.log('Playback blocked:', errPlay);
+      alert('Playback blocked by browser. Tap the video to allow sound and continue.');
+    }
+  }
+
+  function stopVideo(video){
+    try {
+      video.pause();
+      video.currentTime = 0;
+      video.style.display = 'none';
+    } catch(e){/*ignore*/}
+  }
+
+  // start button behavior (only visible after unlock)
+  startBtn.addEventListener('click', async () => {
+    startBtn.style.display = 'none';
+    await safePlay(v1);
+  });
+
+  // on end of v1 -> play v2
+  v1.addEventListener('ended', async () => {
+    stopVideo(v1);
+    await safePlay(v2);
+  });
+
+  // on end of v2 -> reset UI
+  v2.addEventListener('ended', () => {
+    stopVideo(v2);
+    overlay.style.opacity = 1;
+    startBtn.style.display = 'block';
+    // keep session unlocked so user won't need to re-enter during same session
+  });
+
+  // Small improvement: tapping overlay or video attempts to unmute/play (helpful on mobile)
+  function tryResumeOnTap() {
+    // if a video is visible and paused due to policy, try to play
+    [v1, v2].forEach(video => {
+      if (video.style.display === 'block' && video.paused) {
+        video.play().catch(()=>{/*ignore*/});
+      }
+    });
+  }
+  document.addEventListener('touchstart', tryResumeOnTap, {passive:true});
+  document.addEventListener('click', tryResumeOnTap);
+
+})();
+</script>
+</body>
+</html>
